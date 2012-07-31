@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="res/d3.v2.js"></script>
+    <style type="text/css">
+    svg {
+     border:1px solid gray;
+     background:#f7f7f7;
+    }
+
+
+    #countries path {
+      fill: #fff;
+      stroke: #f0f0f0;
+    }
+
+    #arcs path {
+      fill: none;
+      stroke-opacity: .9;
+    }
+
+    body { padding:0; margin:0; overflow: hidden;}
+
+    </style>
+  </head>
+  </head>
+  <body>
+    <div id="chart"></div>
+    <script type="text/javascript" src="fit-projection.js"></script>
+    <script type="text/javascript" src="winkel-tripel.js"></script>
+
+    <script type="text/javascript">
+
+
+    var year = '2008';
+
+    if (/^\?\d{4}$/.exec(window.location.search) !== null) {
+      year = window.location.search.substr(1);
+    }
+
+    var w = window.innerWidth,
+        h = window.innerHeight;
+
+    var useGreatCircles = true;
+
+    d3.loadData = function() {
+        var loadedCallback = null;
+        var toload = {};
+        var data = {};
+        var loaded = function(name, d) {
+          delete toload[name];
+          data[name] = d;
+          return notifyIfAll();
+        };
+        var notifyIfAll = function() {
+          if ((loadedCallback != null) && d3.keys(toload).length === 0) {
+            loadedCallback(data);
+          }
+        };
+        var loader = {
+          json: function(name, url) {
+            toload[name] = url;
+            d3.json(url, function(d) {
+              return loaded(name, d);
+            });
+            return loader;
+          },
+          csv: function(name, url) {
+            toload[name] = url;
+            d3.csv(url, function(d) {
+              return loaded(name, d);
+            });
+            return loader;
+          },
+          onload: function(callback) {
+            loadedCallback = callback;
+            notifyIfAll();
+          }
+        };
+        return loader;
+      };
+
+
+    function splitPath(path) {
+      var avgd = 0, i, d;
+      var c, pc, dx, dy;
+      var points = path.split("L");
+      if (points.length < 2) return path;
+      var newpath = [ points[0] ];
+      var coords = points.map(function(d, i) {
+        return d.substr(i > 0 ? 0 : 1).split(","); // remove M and split
+      });
+
+      // calc avg dist between points
+      for (i = 1; i < coords.length; i++) {
+        pc = coords[i-1]; c = coords[i];
+        dx = c[0] - pc[0]; dy = c[1] - pc[1];
+        d = Math.sqrt(dx*dx + dy*dy);
+        c.push(d);  // push dist as last elem of c
+        avgd += d;
+      }
+      avgd /= coords.length - 1;
+
+      // for points with long dist from prev use M instead of L
+      for (i = 1; i < coords.length; i++) {
+        c = coords[i];
+        newpath.push((c[2] > 5 * avgd ? "M" : "L") + points[i]);
+      }
+      return newpath.join();
+    }
+
+
+    var projection = d3.geo.mercator();
+    //var projection = winkelTripel();
+        //.translate([480, 300])
+        //.scale(970);
+    
+    //var projection = d3.geo.albers()
+        //.origin([-500, 300])
+        //.scale(100)
+       // .origin([50, 380])
+/*
+
+ var projection = d3.geo.albers()
+        .origin([-500, 300])
+        .scale(100);  
+  var projection = d3.geo.azimuthal()
+        .origin([80, 400])
+        .scale(200);
+
+*/
+
+    var path = d3.geo.path()
+        .projection(projection);
+
+    var arc = d3.geo.greatArc().precision(3) //3);
+
+ 
+
+    var svg = d3.select("body").append("svg")
+        .attr("width", w)
+        .attr("height", h);
+        
+    var defs = svg.append("svg:defs");
+
+    svg = svg.append("g");
+        //.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+    svg.append("svg:rect")
+        .attr("width", w)
+        .attr("height", h)
+        .attr("fill", "#ccc")
+        ;
+
+
+    var countries = svg.append("g").attr("id", "countries");
+    var arcs = svg.append("g").attr("id", "arcs");
+    var centroids = svg.append("g").attr("id", "centroids");
+
+
+    svg.append("text")
+      .attr("id", "loading")
+      .attr("x", 5)
+      .attr("y", 17)
+      .attr("font-size", "9pt")
+      .attr("font-family", "arial")
+      .text("Loading year "+year+"...");
+
+
+    d3.loadData()
+      .json('countries', 'data/world-countries.json')
+      .csv('nodes', 'data/refugee-nodes.csv')
+      .csv('flows', 'data/refugee-flows.csv')
+      .onload(function(data) {
+
+        data.flows = data.flows.filter(function(d) { return d[year] > 500 });
+
+        fitProjection(projection, data.countries, [[-w/10,-h/5],[w, h]], true);
+
+        d3.select("#loading").attr("visibility", "hidden");
+
+        var nodeDataByCode = {}, links = [];
+        var maxMagnitude =
+          d3.max(data.flows, function(d) { return parseFloat(d[year])});
+
+
+        var magnitudeFormat = d3.format(",.0f");
+
+        var arcWidth = d3.scale.linear().domain([1, maxMagnitude]).range([.1, 30]);
+        var maxColor = 'rgb(8, 48, 107)';
+        var minColor = d3.rgb('#f0f0f0').darker(0.5);
+        //var minColor = d3.rgb(maxColor).brighter(3);
+            
+        var arcColor = d3.scale.log().domain([1, maxMagnitude]).range([minColor, maxColor]);
+        var arcOpacity = d3.scale.log().domain([1, maxMagnitude]).range([1, 1]);
+
+        countries.selectAll("path")
+          .data(data.countries.features)
+        .enter().append("path")
+          .attr("d", path);
+
+
+        var zoom = d3.behavior.zoom()
+              .translate(projection.translate())
+              .scale(projection.scale())
+              .scaleExtent([h, 8 * h])
+              .on("zoom", updateOnZoom);
+        svg.call(zoom);
+
+        function updateOnZoom() {
+          var t = d3.event.translate,
+              s = d3.event.scale;
+          t[0] = Math.max(-s / 2, Math.min(w + s / 2, t[0]));
+          t[1] = Math.max(-s / 2, Math.min(h + s / 2, t[1]));
+          zoom.translate(t);
+
+          projection.translate(t).scale(s);
+
+          updateNodeCoords();
+          updatePositions();
+
+        }
+
+
+        function updateNodeCoords() {
+          data.nodes.forEach(function(node) {
+            node.coords = nodeCoords(node);
+            node.projection = node.coords ? projection(node.coords) : undefined;
+          });          
+        }
+
+
+        function nodeCoords(node) { 
+          var lon = parseFloat(node.Lon), lat = parseFloat(node.Lat);
+          if (isNaN(lon) || isNaN(lat)) return null;
+          return [lon, lat]; 
+        }
+
+
+        data.nodes.forEach(function(node) {
+          nodeDataByCode[node.Code] = node;
+        });
+
+        //data.flows = data.flows.filter(function(d) { return (d.Origin == 'IDN' && d.Dest == 'USA') ||  (d.Origin == 'LBR'  &&  d.Dest == 'NZL' );  });
+        updateNodeCoords();
+
+        data.flows.forEach(function(flow) {
+          var o = nodeDataByCode[flow.Origin], co = o.coords; //, po = o.projection;
+          var d = nodeDataByCode[flow.Dest], cd = d.coords; // pd = d.projection;
+          var magnitude = parseFloat(flow[year]);
+          if (co  &&  cd  &&  !isNaN(magnitude)) {
+            links.push({
+              source: co, target: cd,
+              magnitude: magnitude,
+              origin:o, dest:d
+             // originp: po, destp:pd 
+            });
+          }
+        });
+
+
+
+        var strokeFun = function(d) { return arcColor(d.magnitude); };
+
+
+
+
+        // see http://apike.ca/prog_svg_patterns.html
+        var markerScale = 3;
+        defs.append("marker")
+          .attr("id", "arrowHead")
+          .attr("viewBox", "0 0 10 10")
+          .attr("refX", 10)
+          .attr("refY", 5)
+          .attr("orient", "auto")
+          //.attr("markerUnits", "strokeWidth")
+          .attr("markerUnits", "userSpaceOnUse")
+          .attr("markerWidth", 4*markerScale)
+          .attr("markerHeight", 3*markerScale)
+          .attr("opacity", 0)
+        .append("polyline")
+          .attr("points", "0,0 10,5 0,10 1,5 0,0")
+          .attr("fill", maxColor)
+          .attr("stroke", "#fff")
+          //.attr("opacity", 0)
+          ;
+
+
+        var gradientNameFun = function(d) { return "grd"+d.origin.Code+d.dest.Code; };
+        var gradientRefNameFun = function(d) { return "url(#"+gradientNameFun(d)+")"; };
+
+        var gradient = defs.selectAll("linearGradient")
+          .data(links)
+        .enter()
+          .append("svg:linearGradient")
+            .attr("id", gradientNameFun)
+            .attr("gradientUnits", "userSpaceOnUse")
+            ;
+
+        gradient.append("svg:stop")
+            .attr("offset", "0%")
+            .attr("stop-color", minColor)
+            .attr("stop-opacity", 0.3);
+        gradient.append("svg:stop")
+            .attr("offset", "80%")
+            .attr("stop-color", strokeFun)
+            .attr("stop-opacity", 1.0);
+        gradient.append("svg:stop")
+            .attr("offset", "100%")
+            .attr("stop-color", strokeFun)
+            .attr("stop-opacity", 1.0);
+
+
+        
+        function updatePositions() {
+          countries.selectAll("path").attr("d", path);
+
+          centroids.selectAll("circle")
+            .attr("cx", function(d) { return d.projection[0] } )
+            .attr("cy", function(d) { return d.projection[1] } );
+
+          arcs.selectAll("path")
+          .attr("d", function(d) { 
+            if (useGreatCircles)
+              return splitPath(path(arc(d)));
+            else 
+              return path({
+                type: "LineString",
+                coordinates: [d.source, d.target]
+              });
+          });
+
+          gradient
+            .attr("x1", function(d) { return d.origin.projection[0]; })
+            .attr("y1", function(d) { return d.origin.projection[1]; })
+            .attr("x2", function(d) { return d.dest.projection[0]; })
+            .attr("y2", function(d) { return d.dest.projection[1]; });
+        }
+
+
+        var arcNodes = arcs.selectAll("path")
+          .data(links)
+        .enter().append("path")
+          //.attr("visibility", function(d) { return d.magnitude > 500 ? "visible" : "hidden"})
+          .attr("stroke", gradientRefNameFun)
+          //.attr("stroke", "red")
+          //.attr("opacity", function(d) { return arcOpacity(d.magnitude); })
+          //.attr("stroke", strokeFun)
+          .attr("stroke-linecap", "round")
+          .attr("stroke-width", function(d) { return arcWidth(d.magnitude); })
+          .sort(function(a, b) {
+            var a = a.magnitude, b = b.magnitude;
+            if (isNaN(a)) if (isNaN(b)) return 0; else return -1; if (isNaN(b)) return 1;
+            return d3.ascending(a, b); 
+          });
+        arcNodes.on("mouseover", function(d) { 
+          var node = d3.select(this);
+          node
+            .attr("stroke", maxColor)
+            .transition()
+            .duration(100)
+              .attr("stroke", "red");
+
+          var arrowHead = d3.select("#arrowHead");
+          arrowHead.attr("opacity", 0);
+          node.attr("marker-end", "url(#arrowHead)")
+
+          //var polyline = d3.select("#arrowHead").select("polyline");
+
+          arrowHead
+            .transition()
+            .delay(10)
+            .each("end", function() {
+              arrowHead
+                .attr("opacity", 0.0);
+
+
+              arrowHead
+                .transition()
+                .duration(10)
+                  .attr("opacity", 1.0)
+                  ;
+            });
+
+        })
+        arcNodes.on("mouseout", function(d) {
+            var node = d3.select(this);
+            node
+              .transition()
+              .duration(200)
+                .attr("stroke", gradientRefNameFun)
+              .each("end", function() {
+                node.attr("marker-end", "none");
+              });
+
+            d3.select("#arrowHead")
+              .transition()
+              .delay(50)
+              .duration(200)
+                .attr("opacity", 0.0);
+        });
+
+
+        arcNodes.append("svg:title")
+          .text(function(d) {
+            return d.origin.Name+" -> "+d.dest.Name+"\n"+
+                   "Refugees in " +year+": " +magnitudeFormat(d.magnitude); 
+        })
+        ;
+
+
+
+
+        centroids.selectAll("circle")
+          .data(data.nodes.filter(function(node) { return node.projection ? true : false }))
+        .enter().append("circle")
+          .attr("r", 2)
+          .attr("fill", "#fff")
+          .attr("stroke", "#666")
+          .attr("stroke-width", 0.5)
+          .attr("opacity", 1.0)
+
+          ;
+
+        updatePositions();
+
+
+
+
+      });
+
+
+    </script>
+  </body>
+</html>
