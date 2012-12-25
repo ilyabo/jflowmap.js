@@ -1,22 +1,25 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <script type="text/javascript" src="res/d3.v2.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
     <style type="text/css">
     svg {
      border:1px solid gray;
-     background:#f7f7f7;
+     background:#f0f0ff;
     }
 
+    .background {
+      fill: white;
+    }
 
-    #countries path {
-      fill: #fff;
-      stroke: #f0f0f0;
+    .land {
+      fill: #f5f1ec;
     }
 
     #arcs path {
       fill: none;
-      stroke-opacity: .9;
+      stroke-opacity: 1;
     }
 
     body { padding:0; margin:0; overflow: hidden;}
@@ -28,11 +31,16 @@
     <div id="chart"></div>
     <script type="text/javascript" src="fit-projection.js"></script>
     <script type="text/javascript" src="winkel-tripel.js"></script>
-
     <script type="text/javascript">
 
 
-    var year = '2008';
+   // TODO: add a filiter with a histogram:
+   //   the bins are flow magnitudes
+   //   the y axis shows the total magnitude per bin (not the count)
+
+
+    var year = '2000';
+    var minMagnitude = 5000;
 
     if (/^\?\d{4}$/.exec(window.location.search) !== null) {
       year = window.location.search.substr(1);
@@ -110,25 +118,29 @@
     }
 
 
-    var projection = d3.geo.mercator();
-    //var projection = winkelTripel();
-        //.translate([480, 300])
-        //.scale(970);
-    
-    //var projection = d3.geo.albers()
-        //.origin([-500, 300])
-        //.scale(100)
-       // .origin([50, 380])
-/*
+    var briesemeister = (function() {
+      var R = 1;
+      var q = Math.sqrt(1.75);
+      return function(λ, φ) {
+        var D = 2/(1 + Math.cos(φ) * Math.cos(λ/2));
+        var x = R * Math.sqrt(3.5 * D) * Math.cos(φ) * Math.sin(λ/2);
+        var y = R * Math.sqrt(2 * D) * Math.sin(φ) / q;
+        return [x, y];
+      }
+    })();
 
- var projection = d3.geo.albers()
-        .origin([-500, 300])
-        .scale(100);  
-  var projection = d3.geo.azimuthal()
-        .origin([80, 400])
-        .scale(200);
+    briesemeister.invert = function(x, y) {
+      // TODO
+      return d3.geo.hammer.raw.invert(x, y);
+    };
 
-*/
+    d3.geo.briesemeister = function() {
+      return d3.geo.projection(briesemeister);
+    };
+
+
+    var projection = d3.geo.briesemeister()
+        .rotate([-10, -45]);
 
     var path = d3.geo.path()
         .projection(projection);
@@ -140,17 +152,20 @@
     var svg = d3.select("body").append("svg")
         .attr("width", w)
         .attr("height", h);
-        
+
+
     var defs = svg.append("svg:defs");
 
     svg = svg.append("g");
         //.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
 
+
+
     svg.append("svg:rect")
         .attr("width", w)
         .attr("height", h)
-        .attr("fill", "#ccc")
+        .attr("class", "background")
         ;
 
 
@@ -174,9 +189,10 @@
       .csv('flows', 'data/refugee-flows.csv')
       .onload(function(data) {
 
-        data.flows = data.flows.filter(function(d) { return d[year] > 500 });
+        data.flows = data.flows.filter(function(d) { return d[year] > minMagnitude });
 
-        fitProjection(projection, data.countries, [[-w/10,-h/5],[w, h]], true);
+
+        fitProjection(projection, data.countries, [[0,0],[w, h]], true);
 
         d3.select("#loading").attr("visibility", "hidden");
 
@@ -198,13 +214,17 @@
         countries.selectAll("path")
           .data(data.countries.features)
         .enter().append("path")
-          .attr("d", path);
+            .attr("class", "land")
+            .attr("d", path);
 
+
+        var initialScale = projection.scale() / 1.1;
+        projection.scale(initialScale);
 
         var zoom = d3.behavior.zoom()
               .translate(projection.translate())
-              .scale(projection.scale())
-              .scaleExtent([h, 8 * h])
+              .scale(initialScale)
+              .scaleExtent([initialScale, initialScale * 10])
               .on("zoom", updateOnZoom);
         svg.call(zoom);
 
