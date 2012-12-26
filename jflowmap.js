@@ -8,6 +8,7 @@ var year = '2006';
 var minMagnitude = 10000;
 var useGreatCircles = false;
 var minPathWidth = 2, maxPathWidth = 40;
+var centroidRadius = 2;
 
 
 
@@ -170,12 +171,21 @@ d3.loadData()
         });
 
     g.append("path")
-      .attr("transform", function(d, i) {
-        return "translate("+(35) +","+ 0 +")";
-      })
+      .attr("transform", "translate(35,0)")
       .attr("d", function(d, i) {
         return taperedPath([[0, 0], [45, 0]], arcWidth(d));
       });
+
+//    g.append("circle")
+//      .attr("class", "centroid")
+//      .attr("cx", 35)
+//      .attr("r", centroidRadius);
+
+    g.append("circle")
+      .attr("class", "centroid")
+      .attr("cx", 35 + 45)
+      .attr("r", centroidRadius)
+
 
     g.append("text")
       .attr("x", 30)
@@ -304,7 +314,7 @@ d3.loadData()
       }
 
       if (pathWidth > 0) {
-        p = perpendicularSegment(p[0], p[1], pathWidth/1.4, coords[coords.length - 1]);
+        p = perpendicularSegment(p[0], p[1], pathWidth/4, coords[coords.length - 1]);
         p = perpendicularSegment(p[0], p[1], pathWidth/2, p[1]);
       }
 
@@ -383,7 +393,7 @@ d3.loadData()
       .data(data.nodes.filter(function(node) { return node.projection ? true : false }))
       .enter().append("circle")
       .attr("class", "centroid")
-      .attr("r", 2.2)
+      .attr("r", centroidRadius)
       .append("svg:title")
       .text(function(d) {
         return d.Name;
