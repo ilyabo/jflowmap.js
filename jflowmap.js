@@ -7,7 +7,7 @@
 var year = '2006';
 var minMagnitude = 10000;
 var useGreatCircles = false;
-var minPathWidth = 2, maxPathWidth = 40;
+var minPathWidth = 1, maxPathWidth = 30;
 var centroidRadius = 2;
 
 
@@ -62,6 +62,8 @@ var projection =
   //d3.geo.winkel3();
   //d3.geo.conicEquidistant();
   d3.geo.briesemeister().rotate([-10, -45]);
+  //d3.geo.mercator();
+  //d3.geo.equirectangular();
 
 
 
@@ -148,7 +150,7 @@ d3.loadData()
     var log10 = function(x) { return Math.log(x)/Math.log(10); }
     var pow10 = function(n) { return Math.pow(10, n); }
     var maxOrd = Math.floor(log10(maxMagnitude));
-    var itemH = maxPathWidth /2 * 1.1;
+    var itemH = maxPathWidth;
 
     var legendValues = [
       maxMagnitude,
@@ -172,6 +174,7 @@ d3.loadData()
 
     g.append("path")
       .attr("transform", "translate(35,0)")
+      .attr("data-width", function(d) { return arcWidth(d); })
       .attr("d", function(d, i) {
         return taperedPath([[0, 0], [45, 0]], arcWidth(d));
       });
@@ -235,8 +238,8 @@ d3.loadData()
     function updateOnZoom() {
       var t = d3.event.translate,
         s = d3.event.scale;
-      t[0] = Math.max(-s / 2, Math.min(w + s / 2, t[0]));
-      t[1] = Math.max(-s / 2, Math.min(h + s / 2, t[1]));
+      // t[0] = Math.max(-s / 2, Math.min(w + s / 2, t[0]));
+      // t[1] = Math.max(-s / 2, Math.min(h + s / 2, t[1]));
       zoom.translate(t);
 
       projection.translate(t).scale(s);
@@ -303,7 +306,7 @@ d3.loadData()
       for (i = 1; i < coords.length; i++) {
         c = coords[i];
         if (pathWidth > 0) {
-          p = perpendicularSegment(c, coords[i-1], i * pathWidth / coords.length, c);
+          p = perpendicularSegment(c, coords[i-1], i * pathWidth / (coords.length - 1), c);
         } else {
           p = [c,c];
         }
@@ -314,7 +317,7 @@ d3.loadData()
       }
 
       if (pathWidth > 0) {
-        p = perpendicularSegment(p[0], p[1], pathWidth/4, coords[coords.length - 1]);
+        p = perpendicularSegment(p[0], p[1], pathWidth, coords[coords.length - 1]);
         p = perpendicularSegment(p[0], p[1], pathWidth/2, p[1]);
       }
 
