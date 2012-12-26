@@ -7,7 +7,7 @@
 var year = '2006';
 var minMagnitude = 10000;
 var useGreatCircles = false;
-var minPathWidth = 1, maxPathWidth = 40;
+var minPathWidth = 2, maxPathWidth = 40;
 
 
 
@@ -130,31 +130,59 @@ d3.loadData()
     var magnitudeFormat = d3.format(",.0f");
 
     var arcWidth = d3.scale.linear().domain([1, maxMagnitude]).range([minPathWidth, maxPathWidth]);
-    var maxColor = 'rgb(8, 48, 107)';
-    var minColor = d3.rgb('#f0f0f0').darker(0.5);
+    //var maxColor = 'rgb(8, 48, 107)';
+    //var minColor = d3.rgb('#f0f0f0').darker(0.5);
     //var minColor = d3.rgb(maxColor).brighter(3);
 
-    var arcColor = d3.scale.log().domain([1, maxMagnitude]).range([minColor, maxColor]);
-    var arcOpacity = d3.scale.log().domain([1, maxMagnitude]).range([1, 1]);
+    //var arcColor = d3.scale.log().domain([1, maxMagnitude]).range([minColor, maxColor]);
+    //var arcOpacity = d3.scale.log().domain([1, maxMagnitude]).range([1, 1]);
 
 
 
 
 
     // legend
+
+
+    var log10 = function(x) { return Math.log(x)/Math.log(10); }
+    var pow10 = function(n) { return Math.pow(10, n); }
+    var maxOrd = Math.floor(log10(maxMagnitude));
+    var itemH = maxPathWidth /2 * 1.1;
+
+    var legendValues = [
+      maxMagnitude,
+      pow10(maxOrd - 1) * 5,
+      pow10(maxOrd - 1) * 2.5,
+      pow10(maxOrd - 1),
+      pow10(maxOrd - 2)
+    ];
+
     var legend = d3.select("#legend").append("svg")
-      .attr("width", 100)
-      .attr("height", 100);
+      .attr("width", 120)
+      .attr("height", itemH * legendValues.length + 15);
 
-    var legendValues = [ maxMagnitude ];
-
-    legend.select("path")
+    var g = legend.selectAll("path")
       .data(legendValues)
-      .enter()
-      .append("path")
+        .enter()
+      .append("g")
+        .attr("transform", function(d, i) {
+          return "translate(" + 20 + "," + (itemH + i*itemH) + ")";
+        });
+
+    g.append("path")
+      .attr("transform", function(d, i) {
+        return "translate("+(35) +","+ 0 +")";
+      })
       .attr("d", function(d, i) {
-        return taperedPath([[0,i*20], [50, i*20]], d.magnitude);
+        return taperedPath([[0, 0], [45, 0]], arcWidth(d));
       });
+
+    g.append("text")
+      .attr("x", 30)
+      .attr("y", 0.5)
+      .attr("text-anchor", "end")
+      .attr("dominant-baseline", "middle")
+      .text(function(d) { return magnitudeFormat(d); });
 
 
 

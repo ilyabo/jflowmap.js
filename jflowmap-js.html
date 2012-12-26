@@ -6,7 +6,6 @@
     <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
     <style type="text/css">
     svg {
-     border:1px solid gray;
      background:#f0f0ff;
     }
 
@@ -20,7 +19,7 @@
       stroke-width:0.1;
     }
 
-    .arcs path {
+    .arcs path,  #legend path {
       stroke: none;
       opacity: 0.75;
       fill: rgb(8, 48, 107);
@@ -39,7 +38,9 @@
 
     body { padding:0; margin:0; overflow: hidden;}
 
-    #legend { border:1px solid gray; position:absolute; right:10px; bottom:10px; }
+    #legend {  position:absolute; left:10px; bottom:10px;  }
+    #legend svg { background-color: white; border:none; border-radius: 10px; }
+    #legend text { font-size:9px; fill:#666; font-family: arial; }
 
 
     </style>
