@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.js"></script>
     <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
     <style type="text/css">
     svg {
@@ -14,12 +14,26 @@
     }
 
     .land {
-      fill: #f5f1ec;
+      fill: #f5f1f0;
+      stroke:white;
+      stroke-width:0.75;
     }
 
-    #arcs path {
-      fill: none;
-      stroke-opacity: 1;
+    .arcs path {
+      stroke: none;
+      opacity: 0.75;
+      fill: rgb(8, 48, 107);
+    }
+
+    .arcs path:hover {
+      fill:red;
+    }
+
+    .centroid {
+      stroke:rgb(8, 48, 107);
+      fill-opacity: 1;
+      fill:white;
+      stroke-width:0.5;
     }
 
     body { padding:0; margin:0; overflow: hidden;}
@@ -39,17 +53,20 @@
    //   the y axis shows the total magnitude per bin (not the count)
 
 
-    var year = '2000';
-    var minMagnitude = 5000;
+    var year = '2006';
+    var minMagnitude = 10000;
+    var useGreatCircles = false;
+    var minPathWidth = 1, maxPathWidth = 50;
 
-    if (/^\?\d{4}$/.exec(window.location.search) !== null) {
+
+
+   if (/^\?\d{4}$/.exec(window.location.search) !== null) {
       year = window.location.search.substr(1);
     }
 
     var w = window.innerWidth,
         h = window.innerHeight;
 
-    var useGreatCircles = true;
 
     d3.loadData = function() {
         var loadedCallback = null;
@@ -89,33 +106,6 @@
       };
 
 
-    function splitPath(path) {
-      var avgd = 0, i, d;
-      var c, pc, dx, dy;
-      var points = path.split("L");
-      if (points.length < 2) return path;
-      var newpath = [ points[0] ];
-      var coords = points.map(function(d, i) {
-        return d.substr(i > 0 ? 0 : 1).split(","); // remove M and split
-      });
-
-      // calc avg dist between points
-      for (i = 1; i < coords.length; i++) {
-        pc = coords[i-1]; c = coords[i];
-        dx = c[0] - pc[0]; dy = c[1] - pc[1];
-        d = Math.sqrt(dx*dx + dy*dy);
-        c.push(d);  // push dist as last elem of c
-        avgd += d;
-      }
-      avgd /= coords.length - 1;
-
-      // for points with long dist from prev use M instead of L
-      for (i = 1; i < coords.length; i++) {
-        c = coords[i];
-        newpath.push((c[2] > 5 * avgd ? "M" : "L") + points[i]);
-      }
-      return newpath.join("");
-    }
 
 
     var briesemeister = (function() {
@@ -139,8 +129,12 @@
     };
 
 
-    var projection = d3.geo.briesemeister()
-        .rotate([-10, -45]);
+    var projection =
+        //d3.geo.winkel3();
+        //d3.geo.conicEquidistant();
+        d3.geo.briesemeister().rotate([-10, -45]);
+
+
 
     var path = d3.geo.path()
         .projection(projection);
@@ -169,9 +163,9 @@
         ;
 
 
-    var countries = svg.append("g").attr("id", "countries");
-    var arcs = svg.append("g").attr("id", "arcs");
-    var centroids = svg.append("g").attr("id", "centroids");
+    var countries = svg.append("g").attr("class", "countries");
+    var arcs = svg.append("g").attr("class", "arcs");
+    var centroids = svg.append("g").attr("class", "centroids");
 
 
     svg.append("text")
@@ -189,7 +183,10 @@
       .csv('flows', 'data/refugee-flows.csv')
       .onload(function(data) {
 
-        data.flows = data.flows.filter(function(d) { return d[year] > minMagnitude });
+        data.flows = data.flows
+            //.filter(function(d) { return !isNaN(d[year]) })
+            .filter(function(d) { return d.Origin != d.Dest; }) // TODO: special graph for self-loops
+            .filter(function(d) { return d[year] > minMagnitude });
 
 
         fitProjection(projection, data.countries, [[0,0],[w, h]], true);
@@ -203,7 +200,7 @@
 
         var magnitudeFormat = d3.format(",.0f");
 
-        var arcWidth = d3.scale.linear().domain([1, maxMagnitude]).range([.1, 30]);
+        var arcWidth = d3.scale.linear().domain([1, maxMagnitude]).range([minPathWidth, maxPathWidth]);
         var maxColor = 'rgb(8, 48, 107)';
         var minColor = d3.rgb('#f0f0f0').darker(0.5);
         //var minColor = d3.rgb(maxColor).brighter(3);
@@ -280,58 +277,66 @@
         });
 
 
+        function taperedPath(path, pathWidth) {
+          var i, c;
+          var there = [], back = [], p;
 
-        var strokeFun = function(d) { return arcColor(d.magnitude); };
+          var points = path.substr(path.lastIndexOf("M")).split("L");
+                      // If the path consists of several segments use only the last one
+          if (points.length < 2) return path;
 
-
-
-
-        // see http://apike.ca/prog_svg_patterns.html
-        var markerScale = 3;
-        defs.append("marker")
-          .attr("id", "arrowHead")
-          .attr("viewBox", "0 0 10 10")
-          .attr("refX", 10)
-          .attr("refY", 5)
-          .attr("orient", "auto")
-          //.attr("markerUnits", "strokeWidth")
-          .attr("markerUnits", "userSpaceOnUse")
-          .attr("markerWidth", 4*markerScale)
-          .attr("markerHeight", 3*markerScale)
-          .attr("opacity", 0)
-        .append("polyline")
-          .attr("points", "0,0 10,5 0,10 1,5 0,0")
-          .attr("fill", maxColor)
-          .attr("stroke", "#fff")
-          //.attr("opacity", 0)
-          ;
+          var coords = points.map(function(d, i) {
+            if (d[0] == "M") d = d.substr(1);
+            c = d.split(",")
+            return [+c[0], +c[1]]; // remove M and split
+          });
 
 
-        var gradientNameFun = function(d) { return "grd"+d.origin.Code+d.dest.Code; };
-        var gradientRefNameFun = function(d) { return "url(#"+gradientNameFun(d)+")"; };
+          for (i = 1; i < coords.length; i++) {
+            c = coords[i];
+            if (pathWidth > 0) {
+              p = perpendicularSegment(c, coords[i-1], i * pathWidth / coords.length, c);
+            } else {
+              p = [c,c];
+            }
+            if (isNaN(p[0][0]))
+              console.log(p)
+            there.push(p[0].join(","));
+            back.push(p[1].join(","));
+          }
 
-        var gradient = defs.selectAll("linearGradient")
-          .data(links)
-        .enter()
-          .append("svg:linearGradient")
-            .attr("id", gradientNameFun)
-            .attr("gradientUnits", "userSpaceOnUse")
-            ;
+          if (pathWidth > 0) {
+            p = perpendicularSegment(p[0], p[1], pathWidth/1.4, coords[coords.length - 1]);
+            p = perpendicularSegment(p[0], p[1], pathWidth/2, p[1]);
+          }
 
-        gradient.append("svg:stop")
-            .attr("offset", "0%")
-            .attr("stop-color", minColor)
-            .attr("stop-opacity", 0.3);
-        gradient.append("svg:stop")
-            .attr("offset", "80%")
-            .attr("stop-color", strokeFun)
-            .attr("stop-opacity", 1.0);
-        gradient.append("svg:stop")
-            .attr("offset", "100%")
-            .attr("stop-color", strokeFun)
-            .attr("stop-opacity", 1.0);
+          return points[0] + " L" +
+              there.join(" L") +
+              (pathWidth > 0 ?
+                " C" + p[1].join(",") + " " + p[0].join(",") : " L"
+              ) +
+              " " + back.reverse().join(" L") +
+              " L" + points[0].substr(1) +
+              "Z";
+        }
 
+        // Returns the vertexes of a segment which has its middle in point p
+        // and is perpendicular to the line which passes through points a,b.
+        // see http://math.stackexchange.com/questions/175896
+        function perpendicularSegment(a, b, length, p) {
+          var v = [b[0] - a[0], b[1] - a[1]];
+          var vnorm = Math.sqrt( v[0] * v[0] + v[1] * v[1] );
+          var u = [v[0] / vnorm, v[1] / vnorm];
 
+          u = [ -u[1], u[0] ];  // rotate by 90 degrees
+
+          var d = [ u[0]*length/2, u[1]*length/2 ];
+
+          return [
+            [+p[0] + d[0], +p[1] + d[1] ],
+            [+p[0] - d[0], +p[1] - d[1] ]
+          ];
+        }
         
         function updatePositions() {
           countries.selectAll("path").attr("d", path);
@@ -341,85 +346,29 @@
             .attr("cy", function(d) { return d.projection[1] } );
 
           arcs.selectAll("path")
-          .attr("d", function(d) { 
-            if (useGreatCircles)
-              return splitPath(path(arc(d)));
-            else 
-              return path({
-                type: "LineString",
-                coordinates: [d.source, d.target]
-              });
+          .attr("d", function(d) {
+              return taperedPath(path({ "type": "LineString",
+                "coordinates": [d.source, d.target]
+              }), arcWidth(d.magnitude));
           });
 
-          gradient
-            .attr("x1", function(d) { return d.origin.projection[0]; })
-            .attr("y1", function(d) { return d.origin.projection[1]; })
-            .attr("x2", function(d) { return d.dest.projection[0]; })
-            .attr("y2", function(d) { return d.dest.projection[1]; });
         }
 
 
         var arcNodes = arcs.selectAll("path")
           .data(links)
         .enter().append("path")
-          //.attr("visibility", function(d) { return d.magnitude > 500 ? "visible" : "hidden"})
-          .attr("stroke", gradientRefNameFun)
-          //.attr("stroke", "red")
-          //.attr("opacity", function(d) { return arcOpacity(d.magnitude); })
-          //.attr("stroke", strokeFun)
-          .attr("stroke-linecap", "round")
-          .attr("stroke-width", function(d) { return arcWidth(d.magnitude); })
+            .attr("data-name", function(d) { return d.origin.Code + "⟶" + d.dest.Code; })
+            .attr("data-magnitude", function(d) { return d.magnitude; })
+            .attr("data-width", function(d) { return arcWidth(d.magnitude); })
+          //.attr("stroke", gradientRefNameFun)
+          //.attr("stroke-linecap", "round")
+          //.attr("stroke-width", function(d) { return arcWidth(d.magnitude); })
           .sort(function(a, b) {
             var a = a.magnitude, b = b.magnitude;
             if (isNaN(a)) if (isNaN(b)) return 0; else return -1; if (isNaN(b)) return 1;
             return d3.ascending(a, b); 
           });
-        arcNodes.on("mouseover", function(d) { 
-          var node = d3.select(this);
-          node
-            .attr("stroke", maxColor)
-            .transition()
-            .duration(100)
-              .attr("stroke", "red");
-
-          var arrowHead = d3.select("#arrowHead");
-          arrowHead.attr("opacity", 0);
-          node.attr("marker-end", "url(#arrowHead)")
-
-          //var polyline = d3.select("#arrowHead").select("polyline");
-
-          arrowHead
-            .transition()
-            .delay(10)
-            .each("end", function() {
-              arrowHead
-                .attr("opacity", 0.0);
-
-
-              arrowHead
-                .transition()
-                .duration(10)
-                  .attr("opacity", 1.0)
-                  ;
-            });
-
-        })
-        arcNodes.on("mouseout", function(d) {
-            var node = d3.select(this);
-            node
-              .transition()
-              .duration(200)
-                .attr("stroke", gradientRefNameFun)
-              .each("end", function() {
-                node.attr("marker-end", "none");
-              });
-
-            d3.select("#arrowHead")
-              .transition()
-              .delay(50)
-              .duration(200)
-                .attr("opacity", 0.0);
-        });
 
 
         arcNodes.append("svg:title")
@@ -435,11 +384,12 @@
         centroids.selectAll("circle")
           .data(data.nodes.filter(function(node) { return node.projection ? true : false }))
         .enter().append("circle")
-          .attr("r", 2)
-          .attr("fill", "#fff")
-          .attr("stroke", "#666")
-          .attr("stroke-width", 0.5)
-          .attr("opacity", 1.0)
+            .attr("class", "centroid")
+            .attr("r", 2.2)
+         .append("svg:title")
+              .text(function(d) {
+                return d.Name;
+              })
 
           ;
 
