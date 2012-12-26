@@ -9,6 +9,7 @@ var minMagnitude = 10000;
 var useGreatCircles = false;
 var minPathWidth = 1, maxPathWidth = 30;
 var centroidRadius = 2;
+var useHalfFlowLines = false;
 
 
 
@@ -152,13 +153,14 @@ d3.loadData()
     var maxOrd = Math.floor(log10(maxMagnitude));
     var itemH = maxPathWidth;
 
-    var legendValues = [
-      maxMagnitude,
-      pow10(maxOrd - 1) * 5,
-      pow10(maxOrd - 1) * 2.5,
-      pow10(maxOrd - 1),
-      pow10(maxOrd - 2)
-    ];
+    var legendValues = [];
+    legendValues.push(maxMagnitude);
+    if (pow10(maxOrd) <= maxMagnitude/1.5) legendValues.push(pow10(maxOrd));
+    legendValues.push(pow10(maxOrd - 1) * 5);
+    legendValues.push(pow10(maxOrd - 1) * 2.5);
+    legendValues.push(pow10(maxOrd - 1));
+    legendValues.push(pow10(maxOrd - 2));
+
 
     var legend = d3.select("#legend").append("svg")
       .attr("width", 120)
@@ -176,7 +178,7 @@ d3.loadData()
       .attr("transform", "translate(35,0)")
       .attr("data-width", function(d) { return arcWidth(d); })
       .attr("d", function(d, i) {
-        return taperedPath([[0, 0], [45, 0]], arcWidth(d));
+        return taperedPath([[0, 0], [45, 0]], arcWidth(d), useHalfFlowLines);
       });
 
 //    g.append("circle")
@@ -299,9 +301,9 @@ d3.loadData()
       return coords;
     }
 
-    function taperedPath(coords, pathWidth) {
+    function taperedPath(coords, pathWidth, useHalfLines) {
       var i, c;
-      var there = [], back = [], p;
+      var there = [], back = [], p, p_;
 
       for (i = 1; i < coords.length; i++) {
         c = coords[i];
@@ -318,15 +320,20 @@ d3.loadData()
 
       if (pathWidth > 0) {
         p = perpendicularSegment(p[0], p[1], pathWidth, coords[coords.length - 1]);
-        p = perpendicularSegment(p[0], p[1], pathWidth/2, p[1]);
+        p_ = perpendicularSegment(p[0], p[1], pathWidth/2, p[1]);
       }
 
       return "M" + coords[0].join(",") + " L" +
         there.join(" L") +
         (pathWidth > 0 ?
-          " C" + p[1].join(",") + " " + p[0].join(",") : " L"
-          ) +
-        " " + back.reverse().join(" L") +
+            (useHalfLines ?
+                " Q" + p_[1].join(",")  + " " + p[1].join(",") + " L"
+              : " C" + p_[1].join(",") + " " + p_[0].join(",")
+            )
+          :
+            " L"
+        ) +
+        " " + (useHalfLines ? coords : back).reverse().join(" L") +
         " L" + coords[0].join(",") +
         "Z";
     }
@@ -360,7 +367,7 @@ d3.loadData()
         .attr("d", function(d) {
           return taperedPath(pointsFromPath(path({ "type": "LineString",
             "coordinates": [d.source, d.target]
-          })), arcWidth(d.magnitude));
+          })), arcWidth(d.magnitude), useHalfFlowLines);
         });
 
     }
