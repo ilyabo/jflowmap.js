@@ -8,7 +8,7 @@ var year = '2006';
 var minMagnitude = 10000;
 var useGreatCircles = false;
 var minPathWidth = 1, maxPathWidth = 30;
-var centroidRadius = 2;
+var centroidRadius = 1.5;
 var useHalfFlowLines = false;
 
 
