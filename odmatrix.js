@@ -213,7 +213,7 @@ function odMatrix(nodes, flows) {
             if (v >= 1)
               return color(v); 
             else
-              return "#ccc"
+              return "#999"
         })
         
       .append("title")
