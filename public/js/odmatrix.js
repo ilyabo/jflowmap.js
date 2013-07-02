@@ -160,7 +160,7 @@ function odMatrix(nodes, flows) {
     }
   }
 
-  var color = d3.scale.linear()
+  var color = d3.scale.sqrt()
     .range(["#FEE0D2", "#DE2D26"])
     .domain([1, d3.max(values)])
     .interpolate(d3.interpolateHcl);
