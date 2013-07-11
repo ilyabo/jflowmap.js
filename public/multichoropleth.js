@@ -59,7 +59,7 @@ queue()
     patternsEnter = mapShapes.append('pattern')
       .attr('id', function(d, i) { return 'multi-fill_' + i; })
       .attr('class', 'multi-fill')
-      .attr('patternTransform', 'rotate(45),scale(25)')
+      .attr('patternTransform', 'rotate(10),scale(20)')
       .attr('patternUnits', 'userSpaceOnUse')
       .attr('width', 1)
       .attr('height', 1);
