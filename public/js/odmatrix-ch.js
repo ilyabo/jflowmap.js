@@ -60,7 +60,6 @@ d3.loadData = function() {
 
 
 
-
 var svg = d3.select("body").append("svg")
   .attr("width", w)
   .attr("height", h);
@@ -83,6 +82,7 @@ svg.append("svg:rect")
 
 var countries = svg.append("g").attr("class", "countries");
 var arcs = svg.append("g").attr("class", "arcs");
+var centroids = svg.append("g").attr("class", "centroids");
 
 
 svg.append("text")
@@ -96,34 +96,18 @@ svg.append("text")
 
   var nodeDataByCode = {};
 
-d3.loadData()
-  .csv('nodes', 'data/refugee-nodes.csv')
-  .csv('flows', 'data/refugee-flows.csv')
-  .onload(function(data) {
+d3.tsv('data/ch-migration-2011.tsv', function(data) {
 
-    data.nodes.forEach(function(node) {
-      nodeDataByCode[node.Code] = node;
-    });
+  var matrix = d3.nest()
+    .key(function(d) { return d.origin; })
+    .rollup(function(dd) {
+      delete dd[0].origin;
+      delete dd[0].CH;
+      return dd[0]; })
+    .map(data);
 
-    var flows = data.flows
-      .filter(function(d) { return d.Origin != d.Dest; }) // TODO: special graph for self-loops
 
-    var largeFlows = data.flows
-      //.filter(function(d) { return !isNaN(d[year]) })
-      .filter(function(d) { return d[year] > minMagnitude });
-
-    var nodes = {};
-    for (var fi in largeFlows) {
-      var f = largeFlows[fi]
-      var v = +f[year];
-      if (f.Dest && f.Origin && !isNaN(v)) {
-        nodes[nodeDataByCode[f.Dest].Name]=true;
-        nodes[nodeDataByCode[f.Origin].Name]=true;
-      }
-    }
-
-    odMatrix(nodes, flows);
-    return;
+  odMatrix(d3.keys(data[0]), matrix);
 
 
 });
@@ -149,38 +133,41 @@ function odMatrixOfNumbers(odMatrix) {
 
 
 
-function odMatrix(nodes, flows) {
+function odMatrix(keys, matrix) {
 
 
-  var matrix = [];
-  var values = [ 0 ];
+//  var matrix = [];
+//  var values = [ 0 ];
+//
+//  for (var fi in flows) {
+//    var f = flows[fi]
+//    var v = +f[year];
+//    var o = nodeDataByCode[f.Origin].Name;
+//    var d = nodeDataByCode[f.Dest].Name;
+//    if (o && d && !isNaN(v)) {
+//      if (!matrix[o]) matrix[o] = {};
+//      matrix[o][d] = v;
+//      values.push(v);
+//    }
+//  }
 
-  for (var fi in flows) {
-    var f = flows[fi]
-    var v = +f[year];
-    var o = nodeDataByCode[f.Origin].Name;
-    var d = nodeDataByCode[f.Dest].Name;
-    if (o && d && !isNaN(v)) {
-      if (!matrix[o]) matrix[o] = {};
-      matrix[o][d] = v;
-      values.push(v);
-    }
-  }
+
+//  console.log(matrix)
 
 //  var clusterer = science.stats.hcluster();
 //  var clustered = clusterer(odMatrixOfNumbers(matrix));
 //  console.log(clustered)
 
-  console.log(matrix)
-
   var color = d3.scale.sqrt()
-    .range(["#FEE0D2", "#DE2D26"])
-    .domain([1, d3.max(values)])
+    .range(["#FEE0D2", d3.hcl("#DE2D26").darker(2).toString() ])
+    .domain([1, 62000])
     .interpolate(d3.interpolateHcl);
 
 
-  var keys = d3.keys(nodes);
-  keys.sort();
+//  var keys = d3.keys(nodes);
+//  keys.sort();
+
+//  console.log(keys)
   // console.log("values: " + values.length + " keys:" + keys.length);
   // console.log(color.domain())
 
@@ -197,9 +184,10 @@ function odMatrix(nodes, flows) {
     .enter()
       .append("text")
         .attr("class", "dest")
-        .attr("y", -1)
-        .attr("x", function(d,i) { return 4 + i * rectsize;})
-        .attr("transform", function(d,i) { return "rotate(-45, "+(i*rectsize)+",-1)";})
+        .attr("y", -2)
+        .attr("text-anchor", "middle")
+        .attr("x", function(d,i) { return rectsize/2 + i * rectsize;})
+//        .attr("transform", function(d,i) { return "rotate(-45, "+(i*rectsize)+",-1)";})
         .text(function(d) { return d; })
 
   row.enter()
@@ -207,8 +195,8 @@ function odMatrix(nodes, flows) {
       .attr("class", "row")
       .attr("transform", function(d,i) {return "translate(0, "+ (i*rectsize)+")"})
     .append("text")
-      .attr("y", 8)
-      .attr("x", -3)
+      .attr("y", 7)
+      .attr("x", -2)
       .attr("text-anchor", "end")
       .text(function(d) { return d; })
   
@@ -226,7 +214,7 @@ function odMatrix(nodes, flows) {
             if (v >= 1)
               return color(v); 
             else
-              return "#999"
+              return "#aaa"
         })
         
       .append("title")
