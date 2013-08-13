@@ -1,62 +1,7 @@
 
-// TODO: add a filiter with a histogram:
-//   the bins are flow magnitudes
-//   the y axis shows the total magnitude per bin (not the count)
-
-
-var year = '2006';
-var minMagnitude = 50000; //100000;
-var useGreatCircles = false;
-var minPathWidth = 1, maxPathWidth = 30;
-var centroidRadius = 1.5;
-var useHalfFlowLines = false;
-
-
-
-if (/^\?\d{4}$/.exec(window.location.search) !== null) {
-  year = window.location.search.substr(1);
-}
-
 var w = window.innerWidth,
   h = window.innerHeight;
 
-
-d3.loadData = function() {
-  var loadedCallback = null;
-  var toload = {};
-  var data = {};
-  var loaded = function(name, d) {
-    delete toload[name];
-    data[name] = d;
-    return notifyIfAll();
-  };
-  var notifyIfAll = function() {
-    if ((loadedCallback != null) && d3.keys(toload).length === 0) {
-      loadedCallback(data);
-    }
-  };
-  var loader = {
-    json: function(name, url) {
-      toload[name] = url;
-      d3.json(url, function(d) {
-        return loaded(name, d);
-      });
-      return loader;
-    },
-    csv: function(name, url) {
-      toload[name] = url;
-      d3.csv(url, function(d) {
-        return loaded(name, d);
-      });
-      return loader;
-    },
-    onload: function(callback) {
-      loadedCallback = callback;
-      notifyIfAll();
-    }
-  };
-  return loader;
-};
 
 
 
@@ -65,7 +10,6 @@ var svg = d3.select("body").append("svg")
   .attr("height", h);
 
 
-var defs = svg.append("svg:defs");
 
 svg = svg.append("g");
 //.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
@@ -96,7 +40,27 @@ svg.append("text")
 
   var nodeDataByCode = {};
 
+var projection = d3.geo.albers()
+  .rotate([0, 0])
+  .center([9.6, 46.6])
+  .scale(10300);
+var geoPath = d3.geo.path()
+  .projection(projection)
+
+
+
 d3.tsv('data/ch-migration-2011.tsv', function(data) {
+d3.json('data/swiss-cantons-simplified.json', function(cantons) {
+
+//  console.log(cantons)
+
+  var geoms = topojson.object(cantons, cantons.objects["swiss-cantons"]).geometries;
+  var centroidByCode = d3.nest()
+    .key(function(d) { return d.properties.abbr; })
+    .rollup(function(dd ) { return geoPath.centroid(dd[0])}  )
+    .map(geoms);
+
+  //console.log(byCode)
 
   var matrix = d3.nest()
     .key(function(d) { return d.origin; })
@@ -107,9 +71,13 @@ d3.tsv('data/ch-migration-2011.tsv', function(data) {
     .map(data);
 
 
-  odMatrix(d3.keys(data[0]), matrix);
+  odMatrix(
+    d3.keys(data[0]).sort(function(a, b) { return d3.ascending(centroidByCode[a][1], centroidByCode[b][1])}),
+    d3.keys(data[0]).sort(function(a, b) { return d3.ascending(centroidByCode[a][0], centroidByCode[b][0])}),
+    matrix);
 
 
+});
 });
 
 
@@ -122,7 +90,7 @@ function odMatrixOfNumbers(odMatrix) {
   for (var oi = 0; oi < nodeList.length; oi++) {
     matrix[oi] = [];
     for (var di = 0; di < nodeList.length; di++) {
-      matrix[oi][di] = odMatrix[nodeList[oi]][nodeList[di]] || 0;
+      matrix[oi][di] = +odMatrix[nodeList[oi]][nodeList[di]] || 0;
     }
   }
 
@@ -133,7 +101,7 @@ function odMatrixOfNumbers(odMatrix) {
 
 
 
-function odMatrix(keys, matrix) {
+function odMatrix(rowKeys, colKeys, matrix) {
 
 
 //  var matrix = [];
@@ -155,7 +123,9 @@ function odMatrix(keys, matrix) {
 //  console.log(matrix)
 
 //  var clusterer = science.stats.hcluster();
-//  var clustered = clusterer(odMatrixOfNumbers(matrix));
+//  var matrixOfNums = odMatrixOfNumbers(matrix);
+//  console.log(matrixOfNums)
+//  var clustered = clusterer(matrixOfNums);
 //  console.log(clustered)
 
   var color = d3.scale.sqrt()
@@ -177,10 +147,10 @@ function odMatrix(keys, matrix) {
     .attr("transform", "translate(70, 50)")
   var rectsize = 10;
   var row = svg.selectAll("g.row")
-    .data(keys)
+    .data(rowKeys)
 
   svg.selectAll("text.dest")
-    .data(keys)
+    .data(colKeys)
     .enter()
       .append("text")
         .attr("class", "dest")
@@ -201,7 +171,7 @@ function odMatrix(keys, matrix) {
       .text(function(d) { return d; })
   
   row.selectAll("rect")
-      .data(keys)
+      .data(colKeys)
     .enter()
       .append("rect")
         .attr("x", function(d, i) { return rectsize * i; })
