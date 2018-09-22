@@ -1,0 +1,32 @@
+
+svg         { background: #e5e5e5; }
+.background { fill:       #e5e5e5; }
+
+.land {
+    fill: white;
+    stroke:#ccc;
+    stroke-width:0.1;
+}
+
+.arcs path,  #legend path {
+    stroke: none;
+    opacity: 0.75;
+    fill: rgb(8, 48, 107);
+}
+
+.arcs path:hover {
+    fill:red;
+}
+
+.centroid {
+    stroke:rgb(8, 48, 107);
+    fill-opacity: 1;
+    fill:white;
+    stroke-width:0.5;
+}
+
+body { padding:0; margin:0; overflow: hidden;}
+
+#legend {  position:absolute; left:10px; bottom:10px;  }
+#legend svg { background-color: white; border:none; border-radius: 10px; }
+#legend text { font-size:9px; fill:#666; font-family: arial; }

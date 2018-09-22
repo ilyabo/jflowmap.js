@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flowmap</title>
+  <meta charset="utf-8"/>
+  <script src="js/d3.js"></script>
+  <script src="js/topojson.v0.min.js"></script>
+  <script src="js/queue.min.js"></script>
+  <style>
+  circle {
+    stroke : #315b7d;
+    stroke-width : 3;
+    fill: #fafaff
+  }
+
+  text {
+    text-anchor:middle;
+    dominant-baseline:central;
+    font-weight:bold;
+    font-family:arial;
+    font-size:5pt;
+    display:none
+  }
+
+  g.map path {
+    stroke:#666; stroke-width:1;
+    fill: #CDBCAA;
+  }
+
+
+  path.flow {
+    fill:steelblue;
+    stroke:none;
+  }
+
+  path.flow:hover {
+    stroke:red;
+  }
+  </style>
+  </head>
+
+
+<body>
+  <script type="text/javascript" src="flowmap.js"></script>
+</body>
+</html>
