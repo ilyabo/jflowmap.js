@@ -1,0 +1,22 @@
+{
+  "name": "jflowmap",
+  "version": "1.0.0",
+  "description": "Flow map visualization of refugee flows",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "deploy": "gh-pages -d public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ilyabo/jflowmap.js.git"
+  },
+  "author": "Ilya Boyandin",
+  "license": "MIT",
+  "homepage": "https://github.com/ilyabo/jflowmap.js#readme",
+  "devDependencies": {
+    "gh-pages": "^2.0.0"
+  }
+}
