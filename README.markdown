@@ -1,4 +1,5 @@
-**UPDATE:** Check out [flowmap.blue](https://flowmap.blue), our new flow map visualization tool.
+<h3>UPDATE: Check out <a href="https://flowmap.blue">flowmap.blue</a>, our new flow map visualization tool.</h3>
+
 
 Flow map visualization built in JavaScript with [D3][d3]. View in action [here][demo].
 
