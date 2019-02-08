@@ -6,7 +6,7 @@ Flow map visualization built in JavaScript with [D3][d3]. View in action [here][
 
 Check 
 [flowmap.gl](https://github.com/teralytics/flowmap.gl), our new WebGL flowmap drawing library. 
-There is also a [helper library for drawing SVG flow lines](https://github.com/ilyabo/svg-flowline) and an [older Java flow map drawing library](https://github.com/ilyabo/jflowmap/tree/master/JFlowMap).
+There is also a [helper library for drawing SVG flow lines](https://github.com/ilyabo/svg-flowline) and an [older Java flow map drawing library](https://github.com/ilyabo/jflowmap/).
 
 
 
