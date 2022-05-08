@@ -11,6 +11,6 @@ There is also a [helper library for drawing SVG flow lines](https://github.com/i
 
 
 [d3]: http://d3js.org/
-[demo]: https://ilya.boyandin.me/jflowmap.js/
+[demo]: https://ilyabo.github.io/jflowmap.js/
 
 ![jflowmap-js: flow map showing refugees data by UNHCR](https://raw.github.com/ilyabo/jflowmap.js/master/doc/jflowmap-js.png)
